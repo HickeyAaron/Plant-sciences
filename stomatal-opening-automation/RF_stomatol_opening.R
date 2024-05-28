@@ -112,6 +112,22 @@ predicted_categories <- predict(model, raw_data)
 ###############################################################################
 ###############################################################################
 
+# Ensure the first row in the results is always STOM_LEN
+if (predicted_categories[1] != "STOM_LEN") {
+  first_stom_len_index <- which(predicted_categories == "STOM_LEN")[1]
+  if (!is.na(first_stom_len_index)) {
+    # Swap the first row with the first occurrence of STOM_LEN
+    temp_value <- raw_data$Value[1]
+    raw_data$Value[1] <- raw_data$Value[first_stom_len_index]
+    raw_data$Value[first_stom_len_index] <- temp_value
+    
+    temp_category <- predicted_categories[1]
+    predicted_categories[1] <- predicted_categories[first_stom_len_index]
+    predicted_categories[first_stom_len_index] <- temp_category
+  }
+}
+
+
 enforce_constraints <- function(values, categories) {
   n <- length(values)
   result <- data.frame(Value = values, Category = categories)
