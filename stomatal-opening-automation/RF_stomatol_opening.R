@@ -17,15 +17,27 @@
 ###############################################################################
 ###############################################################################
 
-setwd("users/aaronhickey/Downloads")
-install.packages("randomForest")
+setwd("/Users/aaronhickey/Downloads")
 
+# Install necessary packages
+install.packages(c("googlesheets4","randomForest"))
+
+library(googlesheets4)
 library(dplyr)
 library(tidyr)
 library(randomForest)
 
+# Authorize Google Sheets
+gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
+
+# Replace with your Google Sheet ID
+sheet_id <- "https://docs.google.com/spreadsheets/d/1VzO0u2xZF-UNMwoNIjxkngERsSwk7rEcC51MJckiQB0/edit#gid=0"
+  
+# Read the training data from the sheet
+data <- read_sheet(sheet_id, sheet = "Sheet1")
+
 # Read datasheet which contains "training" data
-data <- read.csv("SCAVENGERS_27-03-24.csv") 
+# data <- read.csv("SCAVENGERS_27-03-24.csv") 
 
 # Read the raw data that needs categorisation
 # Format for current script is STOM_LEN, STOM_WID, PORE_LEN, PORE_WID 
