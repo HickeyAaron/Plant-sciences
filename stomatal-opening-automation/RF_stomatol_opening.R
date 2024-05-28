@@ -44,7 +44,7 @@ data <- read_sheet(sheet_id, sheet = "Sheet1")
 # all in a single column with no header
 # raw_data <- read.csv("ML_test.csv", header = FALSE, col.names = c("Value"))
 
-raw_data <- read.csv("Results.csv", header = FALSE, col.names = c("Count", "Angle", "Value"))
+raw_data <- read.csv("DCMU_4_2_AB.csv", header = FALSE, col.names = c("Count", "Angle", "Value"))
 raw_data <- raw_data[-1, ]
 
 # Reshape the data to long format
@@ -114,19 +114,8 @@ predicted_categories <- predict(model, raw_data)
 
 # Ensure the first row in the results is always STOM_LEN
 if (predicted_categories[1] != "STOM_LEN") {
-  first_stom_len_index <- which(predicted_categories == "STOM_LEN")[1]
-  if (!is.na(first_stom_len_index)) {
-    # Swap the first row with the first occurrence of STOM_LEN
-    temp_value <- raw_data$Value[1]
-    raw_data$Value[1] <- raw_data$Value[first_stom_len_index]
-    raw_data$Value[first_stom_len_index] <- temp_value
-    
-    temp_category <- predicted_categories[1]
-    predicted_categories[1] <- predicted_categories[first_stom_len_index]
-    predicted_categories[first_stom_len_index] <- temp_category
-  }
+  predicted_categories[1] <- "STOM_LEN"
 }
-
 
 enforce_constraints <- function(values, categories) {
   n <- length(values)
