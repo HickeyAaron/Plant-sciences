@@ -32,7 +32,7 @@ gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
 
 # Replace with your Google Sheet ID
 sheet_id <- "https://docs.google.com/spreadsheets/d/1VzO0u2xZF-UNMwoNIjxkngERsSwk7rEcC51MJckiQB0/edit#gid=0"
-  
+
 # Read the training data from the sheet
 data <- read_sheet(sheet_id, sheet = "Sheet1")
 
@@ -113,66 +113,28 @@ predicted_categories <- predict(model, raw_data)
 ###############################################################################
 ###############################################################################
 
-# Function to enforce the block and order constraints
 enforce_constraints <- function(values, categories) {
   n <- length(values)
   result <- data.frame(Value = values, Category = categories)
   
-  i <- 1
-  while (i <= n) {
-    # Categorize STOM_LEN
-    if (categories[i] == "STOM_LEN" && i < n) {
-      result$Category[i] <- "STOM_LEN"
+  for (i in 1:(n-1)) {
+    if (result$Category[i] == "STOM_LEN") {
       result$Category[i + 1] <- "STOM_WID"
-      i <- i + 2
-    }
-    # Categorize PORE_LEN
-    else if (categories[i] == "PORE_LEN" && i < n) {
-      result$Category[i] <- "PORE_LEN"
-      result$Category[i + 1] <- "PORE_WID"
-      i <- i + 2
-    }
-    # Recategorize UNKNOWN following PORE_WID as STOM_LEN
-    else if (i > 1 && categories[i] == "UNKNOWN" && result$Category[i - 1] == "PORE_WID") {
-      result$Category[i] <- "STOM_LEN"
-      if (i < n) {
-        result$Category[i + 1] <- "STOM_WID"
+    } else if (result$Category[i] == "STOM_WID") {
+      if (i < n - 1 && result$Category[i + 1] == "STOM_WID") {
+        result$Category[i + 1] <- "STOM_LEN"
+      } else if (i < n - 1 && !(result$Category[i + 1] %in% c("STOM_LEN", "PORE_LEN"))) {
+        result$Category[i + 1] <- ifelse(i %% 2 == 1, "STOM_LEN", "PORE_LEN")
       }
-      i <- i + 2
-    }
-    # Recategorize UNKNOWN preceding PORE_WID as PORE_LEN
-    else if (i < n && categories[i] == "UNKNOWN" && categories[i + 1] == "PORE_WID") {
-      result$Category[i] <- "PORE_LEN"
-      i <- i + 1
-    }
-    # Ensure STOM_WID is not repeated consecutively
-    else if (categories[i] == "STOM_WID" && i > 1 && result$Category[i - 1] == "STOM_WID") {
-      result$Category[i] <- "STOM_LEN"
-      if (i < n) {
+    } else if (result$Category[i] == "PORE_LEN") {
+      if (i < n && result$Category[i + 1] == "STOM_WID") {
+        result$Category[i] <- "STOM_LEN"
         result$Category[i + 1] <- "STOM_WID"
-      }
-      i <- i + 2
-    }
-    # Ensure STOM_WID is not followed by another STOM_WID
-    else if (categories[i] == "STOM_WID" && i < n && categories[i + 1] == "STOM_WID") {
-      result$Category[i] <- "STOM_LEN"
-      if (i < n) {
-        result$Category[i + 1] <- "STOM_WID"
-      }
-      i <- i + 2
-    }
-    # Handle remaining UNKNOWN categories
-    else if (categories[i] == "UNKNOWN") {
-      if (i > 1 && result$Category[i - 1] == "STOM_LEN") {
-        result$Category[i] <- "STOM_WID"
       } else {
-        result$Category[i] <- "UNKNOWN"
+        result$Category[i + 1] <- "PORE_WID"
       }
-      i <- i + 1
-    }
-    # Move to the next value if no conditions match
-    else {
-      i <- i + 1
+    } else if (result$Category[i] == "PORE_WID") {
+      result$Category[i + 1] <- "STOM_LEN"
     }
   }
   
