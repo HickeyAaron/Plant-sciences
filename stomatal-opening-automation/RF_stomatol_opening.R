@@ -42,7 +42,6 @@ data <- read_sheet(sheet_id, sheet = "Sheet1")
 # Read the raw data that needs categorisation
 # Format for current script is STOM_LEN, STOM_WID, PORE_LEN, PORE_WID 
 # all in a single column with no header
-
 # raw_data <- read.csv("ML_test.csv", header = FALSE, col.names = c("Value"))
 
 raw_data <- read.csv("Results.csv", header = FALSE, col.names = c("Count", "Angle", "Value"))
