@@ -17,6 +17,9 @@ process_csv <- function(file) {
   
   # Extract file name without extension
   file_name <- tools::file_path_sans_ext(basename(file))
+
+  # Remove 'format_' from the file name
+  modified_file_name <- gsub("^format_", "", file_name)
   
   # Add a new column 'Sample' with the file name
   data$Image <- file_name
