@@ -28,7 +28,7 @@ library(tidyr)
 library(randomForest)
 
 # Authorize Google Sheets
-gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
+# gs4_auth(scopes = "https://www.googleapis.com/auth/spreadsheets")
 
 # Replace with your Google Sheet ID
 sheet_id <- "https://docs.google.com/spreadsheets/d/1VzO0u2xZF-UNMwoNIjxkngERsSwk7rEcC51MJckiQB0/edit#gid=0"
@@ -95,33 +95,36 @@ print(paste("Accuracy:", accuracy))
 ###############################################################################
 ###############################################################################
 
-# Function to enforce constraints
-enforce_constraints <- function(values, categories) {
+# Function to enforce constraints with error handling
+enforce_constraints <- function(values, categories, file_name) {
   n <- length(values)
   result <- data.frame(Value = values, Category = categories)
   
-  for (i in 1:(n-1)) {
-    if (result$Category[i] == "STOM_LEN") {
-      result$Category[i + 1] <- "STOM_WID"
-    } else if (result$Category[i] == "STOM_WID") {
-      if (i < n - 1 && result$Category[i + 1] == "STOM_WID") {
-        result$Category[i + 1] <- "STOM_LEN"
-      } else if (i < n - 1 && !(result$Category[i + 1] %in% c("STOM_LEN", "PORE_LEN"))) {
-        result$Category[i + 1] <- ifelse(i %% 2 == 1, "STOM_LEN", "PORE_LEN")
-      }
-    } else if (result$Category[i] == "PORE_LEN") {
-      if (i < n && result$Category[i + 1] == "STOM_WID") {
-        result$Category[i] <- "STOM_LEN"
+  tryCatch({
+    for (i in 1:(n-1)) {
+      if (result$Category[i] == "STOM_LEN") {
         result$Category[i + 1] <- "STOM_WID"
-      } else {
-        result$Category[i + 1] <- "PORE_WID"
+      } else if (result$Category[i] == "STOM_WID") {
+        if (i < n - 1 && result$Category[i + 1] == "STOM_WID") {
+          result$Category[i + 1] <- "STOM_LEN"
+        } else if (i < n - 1 && !(result$Category[i + 1] %in% c("STOM_LEN", "PORE_LEN"))) {
+          result$Category[i + 1] <- ifelse(i %% 2 == 1, "STOM_LEN", "PORE_LEN")
+        }
+      } else if (result$Category[i] == "PORE_LEN") {
+        if (i < n && result$Category[i + 1] == "STOM_WID") {
+          result$Category[i] <- "STOM_LEN"
+          result$Category[i + 1] <- "STOM_WID"
+        } else {
+          result$Category[i + 1] <- "PORE_WID"
+        }
+      } else if (result$Category[i] == "PORE_WID") {
+        result$Category[i + 1] <- "STOM_LEN"
       }
-    } else if (result$Category[i] == "PORE_WID") {
-      result$Category[i + 1] <- "STOM_LEN"
     }
-  }
-  
-  return(result)
+    return(result)
+  }, error = function(e) {
+    stop(paste("Error in file:", file_name, "\n", e))
+  })
 }
 
 ###############################################################################
@@ -236,9 +239,6 @@ for (set_num in unique_sets) {
   }
 }
 
-# Sort the combined results dataframe by Set and Value
-combined_results <- combined_results[order(combined_results$Set, combined_results$Value), ]
-
 
 combined_results$Image <- rownames(combined_results)
 rownames(combined_results) <- NULL
@@ -246,10 +246,44 @@ rownames(combined_results) <- NULL
 combined_results$Image <- sub("(?<=\\.)(\\d)(?=$)", "0\\1", combined_results$Image, perl=TRUE)
 combined_results <- combined_results[order(combined_results$Image, combined_results$Set), ]
 
-formatted_data$Image <- combined_results$Image
+combined_results$Image <- combined_results$Image
 
 # Reorder the columns with Image as the first column
-formatted_data <- formatted_data[, c("Image", names(formatted_data)[-which(names(formatted_data) == "Image")])]
+formatted_data <- combined_results[, c("Image", names(combined_results)[-which(names(combined_results) == "Image")])]
+
+# Pivot wider with handling duplicates
+formatted_data <- pivot_wider(combined_results, names_from = Category, values_from = Value, values_fn = list)
+
+
+
+# Function to take the first non-null value in each group
+first_non_null <- function(x) {
+  return(x[!is.na(x)][1])
+}
+
+# Remove the suffix from the Image column
+combined_results <- combined_results %>%
+  mutate(CoreImage = sub("\\.\\d+$", "", Image))
+
+# Group by CoreImage and Set, then summarize to get one row per CoreImage and Set
+grouped_data <- combined_results %>%
+  group_by(CoreImage, Set) %>%
+  summarize(
+    STOM_LEN = first_non_null(Value[Category == "STOM_LEN"]),
+    STOM_WID = first_non_null(Value[Category == "STOM_WID"]),
+    PORE_LEN = first_non_null(Value[Category == "PORE_LEN"]),
+    PORE_WID = first_non_null(Value[Category == "PORE_WID"])
+  ) %>%
+  ungroup()
+
+# Rename CoreImage back to Image if needed
+grouped_data <- grouped_data %>%
+  rename(Image = CoreImage)
+
+
+grouped_data <- grouped_data %>%
+  mutate(across(everything(), ~replace(., is.na(.), 0)))
+
 
 # Save the combined results to a CSV file
 write.csv(combined_results, file = "/Users/aaronhickey/georgia/combined_results.csv", row.names = FALSE)
