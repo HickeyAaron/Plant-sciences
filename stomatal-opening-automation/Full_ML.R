@@ -4,12 +4,19 @@
 ###############################################################################
 ###############################################################################
 
+# General setup should be changing the various filepaths in step 1. 
+# Proceed to step 2 and check the QC output. If there are odd number of rows
+# in any of the raw data input csv files it should output which files. 
+# After that comment out unneccessary steps in step 1, highlight the 
+# entire script and run
+
 # STEP 1: Environment setup
-# STEP 2: Trains a random forest model based on input training data and apply 
-# the model to the raw data to very roughly categorise the raw data
-# STEP 3: Apply a programmatic curation step to refine the output
-# STEP 4: Data manipulation to identify sets of stomata
-# STEP 5: Format categorisation output into an appropriate dataframe
+# STEP 2: Raw data quality control for even numbers check
+# STEP 3: Trains a random forest model based on input training data 
+# STEP 4: Define a function to perform a programmatic curation step to refine the output
+# STEP 5: Stomata grouping 
+# STEP 6: Apply the model to the raw data and 
+# Format categorisation output into an appropriate dataframe
 
 ###############################################################################
 ###############################################################################
@@ -17,10 +24,8 @@
 ###############################################################################
 ###############################################################################
 
-setwd("/Users/aaronhickey/Downloads")
-
 # Install necessary packages
-install.packages(c("googlesheets4","randomForest"))
+# install.packages(c("googlesheets4","randomForest"))
 
 library(googlesheets4)
 library(dplyr)
@@ -35,6 +40,10 @@ sheet_id <- "https://docs.google.com/spreadsheets/d/1VzO0u2xZF-UNMwoNIjxkngERsSw
 
 # Read the training data from the sheet
 data <- read_sheet(sheet_id, sheet = "Sheet1")
+
+# Directory containing the raw data input CSV files
+input_directory <- "/Users/aaronhickey/georgia"
+output_file <- "/Users/aaronhickey/georgia/combined_results.csv"
 
 # Reshape the data to long format
 long_data <- data %>%
@@ -52,7 +61,39 @@ long_data <- long_data %>%
 
 ###############################################################################
 ###############################################################################
-############## STEP 2: Model training and rough categorisation ################
+########################### STEP 2: QC of input data ##########################
+###############################################################################
+###############################################################################
+
+# List all CSV files in the directory
+csv_files <- list.files(input_directory, pattern = "\\.csv$", full.names = TRUE)
+
+# Function to check if a number is even
+is_even <- function(x) {
+  x %% 2 == 0
+}
+
+# Loop through each CSV file
+for (file in csv_files) {
+  # Read the CSV file with header
+  data <- read.csv(file)
+  
+  # Remove the first row (the header)
+  data_without_header <- data[-1,]
+  
+  # Get the number of rows in the data without the header
+  num_rows <- nrow(data_without_header) + 1
+  
+  # Check if the number of rows is even
+  if (!is_even(num_rows)) {
+    # Print a message if the number of rows is odd
+    cat(file, "- uneven row number.\n")
+  }
+}
+
+###############################################################################
+###############################################################################
+############## STEP 3: Model training and rough categorisation ################
 ###############################################################################
 ###############################################################################
 
@@ -91,7 +132,7 @@ print(paste("Accuracy:", accuracy))
 
 ###############################################################################
 ###############################################################################
-########################## STEP 3: Refinement #################################
+########################## STEP 4: Programatic Curation #######################
 ###############################################################################
 ###############################################################################
 
@@ -129,7 +170,7 @@ enforce_constraints <- function(values, categories, file_name) {
 
 ###############################################################################
 ###############################################################################
-########################## STEP 4: Stomata grouping ###########################
+########################## STEP 5: Stomata grouping ###########################
 ###############################################################################
 ###############################################################################
 
@@ -168,15 +209,9 @@ group_stomata <- function(data) {
 
 ###############################################################################
 ###############################################################################
-########################### STEP 5: Process Files #############################
+#################### STEP 6: Apply model and process data #####################
 ###############################################################################
 ###############################################################################
-
-# Directory containing the CSV files
-directory <- "/Users/aaronhickey/georgia"
-
-# List all CSV files in the directory
-csv_files <- list.files(directory, pattern = "\\.csv$", full.names = TRUE)
 
 # Initialize an empty list to store the results
 all_results <- list()
@@ -239,7 +274,7 @@ for (set_num in unique_sets) {
   }
 }
 
-
+# Reorganise data to include image column and order appropriately for QC
 combined_results$Image <- rownames(combined_results)
 rownames(combined_results) <- NULL
 
@@ -253,7 +288,6 @@ formatted_data <- combined_results[, c("Image", names(combined_results)[-which(n
 
 # Pivot wider with handling duplicates
 formatted_data <- pivot_wider(combined_results, names_from = Category, values_from = Value, values_fn = list)
-
 
 
 # Function to take the first non-null value in each group
@@ -280,10 +314,11 @@ grouped_data <- combined_results %>%
 grouped_data <- grouped_data %>%
   rename(Image = CoreImage)
 
-
+# Replace all the NAs with 0
 grouped_data <- grouped_data %>%
   mutate(across(everything(), ~replace(., is.na(.), 0)))
 
+print(grouped_data)
 
 # Save the combined results to a CSV file
-write.csv(combined_results, file = "/Users/aaronhickey/georgia/combined_results.csv", row.names = FALSE)
+write.csv(grouped_data, file = output_file, row.names = FALSE)
