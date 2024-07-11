@@ -14,24 +14,6 @@ onemap_vcf <- onemap_read_vcfR(vcf = "./Data/F2s_G0s.smoothed.vcf",
 
 saveRDS(onemap_vcf, "Onemap_F2_G0s.smoothed.rds")
 
-# Function to run find_bins in parallel
-run_find_bins_parallel <- function(onemap_vcf, cores = detectCores() - 1) {
-  # Split data for parallel processing
-  split_data <- split(onemap_vcf, 1:cores)
-  
-  # Parallel processing using mclapply
-  results <- mclapply(split_data, function(data_chunk) {
-    find_bins(data_chunk, exact = FALSE)
-  }, mc.cores = cores)
-  
-  # Combine results
-  do.call(rbind, results)
-}
-
-# Run the find_bins function in parallel
-bins <- run_find_bins_parallel(onemap_vcf)
-bins
-
 bins <- find_bins(onemap_vcf, exact = FALSE)
 bins
 
