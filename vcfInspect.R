@@ -1,10 +1,21 @@
-# Load the vcfR package
-# install.packages("vcfR")
+# Load necessary libraries
 library(vcfR)
+library(data.table)
+library(zoo)
 
-# Step 1: Read the VCF file
-vcf_file <- "path_to_your_file.vcf"
+
+vcf_file <- "F2s_G0s.biallelic_positions_hardfiltered_GQ30_annotated.vcf"  # Replace with your actual VCF file path
 vcf <- read.vcfR(vcf_file)
+
+# Define file paths
+modified_vcf_file <- "F2s_G0s_GQ30.smoothed.vcf"
+smooth_vcf <- read.vcfR(modified_vcf_file)
+
+qc_log_file <- "qc_log.txt"
+# Read the QC log
+qc_log <- read.table(qc_log_file, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+
+
 
 # Step 2: Extract the data
 vcf_data <- vcf@fix
